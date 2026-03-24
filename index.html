@@ -102,8 +102,11 @@
 </div>
 
 <div id="page-report" class="page">
-    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h4 style="margin:0">Riwayat Laporan</h4>
+        <button onclick="clearAllData()" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e74c3c; background: #fff5f5; color: #e74c3c; font-weight: bold; font-size: 11px; cursor: pointer; transition: 0.2s;">
+            🗑️ Hapus Data Tahunan
+        </button>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
         <button class="btn-export btn-excel" onclick="exportExcel()">📊 Export Excel</button>
@@ -427,6 +430,29 @@
     
     // Jalankan pertama kali
     initMenu();
+
+    function clearAllData() {
+    // Mengambil data logs dari storage
+    const currentLogs = JSON.parse(localStorage.getItem('logs') || '[]');
+    const total = currentLogs.length;
+    
+    if (total === 0) {
+        alert("Tidak ada data yang bisa dihapus.");
+        return;
+    }
+
+    // Konfirmasi dua kali agar tidak tidak sengaja terhapus
+    const konfirmasi1 = confirm(`Bapak akan menghapus TOTAL ${total} data laporan.`);
+    if (konfirmasi1) {
+        const konfirmasi2 = confirm("PENTING: Pastikan Bapak sudah EXPORT ke Excel/PDF.\n\nHapus semua data sekarang?");
+        if (konfirmasi2) {
+            localStorage.removeItem('logs'); // Menghapus data spesifik maintenance
+            loadData(); // Refresh tampilan dashboard
+            initMenu(); // Refresh status centang di menu utama
+            alert("Data berhasil dikosongkan.");
+        }
+    }
+}
 </script>
 </body>
 </html>
