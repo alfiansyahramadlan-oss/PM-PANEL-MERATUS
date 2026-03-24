@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel Manager Pro</title>
+    
+    <!-- Library untuk Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --success: #27ae60; --info: #3498db; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-bottom: 70px; }
+        
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
+        .nav-item { flex: 1; padding: 15px; text-align: center; cursor: pointer; font-weight: bold; color: #95a5a6; transition: 0.3s; }
+        .nav-item.active { color: var(--primary); border-top: 3px solid var(--primary); background: #fdfdfd; }
+
+        .page { display: none; padding: 15px; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .full-complete-notice { 
+            display: none; 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 15px; 
+            border-radius: 12px; 
+            border: 1px solid #c3e6cb; 
+            margin-bottom: 20px; 
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .floor-btn { width: 100%; padding: 16px; margin-bottom: 10px; background: white; border: 1px solid #ddd; border-radius: 12px; text-align: left; font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .floor-header-content { display: flex; align-items: center; gap: 10px; }
+        
+        .next-cleaning-tag {
+            background: #fff3cd;
+            color: #856404;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #ffeeba;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .panel-list { display: none; padding: 5px 10px 15px 10px; }
+        .report-panel-container { display: none; padding: 5px 10px 15px 10px; }
+
+        .panel-item { background: #fff; padding: 15px; border-bottom: 1px solid #eee; color: var(--info); cursor: pointer; border-radius: 8px; margin-bottom: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; }
+        .done-mark { color: var(--success); font-weight: bold; }
+        .week-info { font-size: 10px; color: #7f8c8d; background: #eee; padding: 2px 6px; border-radius: 4px; }
+
+        .report-item { background: white; padding: 12px 15px; border-radius: 10px; margin-bottom: 8px; display: flex; flex-direction: column; border-left: 4px solid var(--success); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .report-header { display: flex; justify-content: space-between; align-items: center; }
+        .report-info b { display: block; font-size: 14px; color: #2c3e50; }
+        .report-info span { font-size: 11px; color: #7f8c8d; }
+        .report-actions { display: flex; gap: 10px; align-items: center; }
+        .report-finding { font-size: 11px; color: #e67e22; margin-top: 5px; font-style: italic; background: #fff9f4; padding: 4px; border-radius: 4px; }
+        
+        .btn-export { padding: 10px; border: none; border-radius: 8px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; }
+        .btn-excel { background: #1d6f42; }
+        .btn-pdf { background: #b03535; }
+        
+        .icon-btn { background: #f0f3f5; border: none; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 18px; color: var(--primary); transition: 0.2s; }
+        .btn-del-small { color: #e74c3c; font-size: 14px; background: none; border: none; cursor: pointer; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; padding: 20px; box-sizing: border-box; justify-content: center; align-items: center; flex-direction: column; }
+        .modal-content { background: white; width: 100%; max-width: 400px; border-radius: 15px; padding: 15px; position: relative; overflow-y: auto; max-height: 90vh; }
+        .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .modal-grid div { text-align: center; font-size: 12px; font-weight: bold; }
+        .modal-grid img { width: 100%; border-radius: 8px; border: 1px solid #ddd; margin-top: 5px; }
+        .close-modal { position: absolute; top: -40px; right: 0; color: white; font-size: 30px; font-weight: bold; cursor: pointer; }
+
+        .cam-area { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .preview-box { border: 2px dashed #ccc; padding: 10px; border-radius: 10px; margin: 15px 0; text-align: center; background: #fafafa; }
+        .preview-box img { width: 100%; border-radius: 8px; display: none; margin-top: 10px; border: 1px solid #ddd; }
+        
+        .pm-checklist { background: #e8f4fd; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 12px; color: #2980b9; border: 1px solid #d0e9f8; }
+        textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px; box-sizing: border-box; font-family: inherit; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h3 style="margin:0">PANEL MAINTENANCE</h3>
+    <div id="clock" style="font-size: 11px; margin-top: 4px; opacity: 0.8;"></div>
+</header>
+
+<div id="page-input" class="page active">
+    <div id="full-complete-notice" class="full-complete-notice">
+        <strong>🎉 SIKLUS SELESAI!</strong><br>
+        Semua panel telah dibersihkan.
+    </div>
+    <div id="floor-container"></div>
+</div>
+
+<div id="page-report" class="page">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <h4 style="margin:0">Riwayat Laporan</h4>
+        <button onclick="clearAll()" style="font-size: 11px; border: none; background: none; color: #e74c3c;">Hapus Semua</button>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <button class="btn-export btn-excel" onclick="exportExcel()">📊 Export Excel</button>
+        <button class="btn-export btn-pdf" onclick="exportPDF()">📕 Export PDF</button>
+    </div>
+    <div id="report-list"></div>
+</div>
+
+<div class="nav-bar">
+    <div class="nav-item active" onclick="switchTab('page-input', this); initMenu();">➕ Input</div>
+    <div class="nav-item" onclick="switchTab('page-report', this); loadData();">📋 Dashboard</div>
+</div>
+
+<div id="photo-modal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closePhoto()">&times;</span>
+        <h4 id="m-title" style="margin:0; color: var(--primary);">Detail Panel</h4>
+        <div id="m-date" style="font-size: 11px; color: #666;"></div>
+        <div id="m-finding" style="margin-top: 10px; font-size: 13px; color: #e67e22; font-weight: bold;"></div>
+        <div class="modal-grid">
+            <div>BEFORE<img id="m-before"></div>
+            <div>AFTER<img id="m-after"></div>
+        </div>
+    </div>
+</div>
+
+<div id="cam-screen" class="cam-area">
+    <h3 id="c-panel" style="margin-bottom: 5px;">Panel Name</h3>
+    
+    <div class="pm-checklist">
+        <strong>Pekerjaan Meliputi:</strong><br>
+        ✅ Cleaning (Pembersihan Debu & Kotoran)<br>
+        ✅ Tightening (Pengencangan Koneksi Kabel)
+    </div>
+
+    <div class="preview-box">
+        <b>Foto BEFORE</b><br>
+        <input type="file" id="file-before" accept="image/*" onchange="handleImg(this, 'p-before')">
+        <img id="p-before">
+    </div>
+    <div class="preview-box">
+        <b>Foto AFTER</b><br>
+        <input type="file" id="file-after" accept="image/*" onchange="handleImg(this, 'p-after')">
+        <img id="p-after">
+    </div>
+
+    <b>Temuan / Catatan (Opsional)</b>
+    <textarea id="input-finding" rows="3" placeholder="Contoh: Baut terminal kendor atau ada bekas terbakar..."></textarea>
+
+    <button onclick="doSave()" style="width:100%; padding:16px; background:var(--success); color:white; border:none; border-radius:10px; font-weight:bold;">SIMPAN DATA</button>
+    <button onclick="closeCam()" style="width:100%; padding:10px; background:#95a5a6; color:white; border:none; border-radius:10px; margin-top:10px; margin-bottom: 30px;">BATAL</button>
+</div>
+
+<script>
+    let activeP = ""; let activeF = "";
+    const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+    function getSchedule(floorIndex) {
+        let cycleStartMonth = Math.floor((new Date().getMonth()) / 3) * 3;
+        let targetMonthIndex = (floorIndex <= 4) ? cycleStartMonth : cycleStartMonth + 1;
+        let targetWeek = (floorIndex <= 4) ? floorIndex : floorIndex - 4;
+        let nextMonthIndex = (targetMonthIndex + 3) % 12;
+        
+        return { 
+            month: months[targetMonthIndex], 
+            week: targetWeek,
+            nextMonth: months[nextMonthIndex] 
+        };
+    }
+
+    function isAlreadyCleaned(floor, panel) {
+        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+        const now = new Date();
+        const currentCycleMonth = Math.floor(now.getMonth() / 3) * 3;
+        const currentYear = now.getFullYear();
+        
+        return logs.some(l => {
+            const logDate = new Date(l.rawDate);
+            const logCycleMonth = Math.floor(logDate.getMonth() / 3) * 3;
+            return l.f === floor && 
+                   l.p === panel && 
+                   logCycleMonth === currentCycleMonth && 
+                   logDate.getFullYear() === currentYear;
+        });
+    }
+
+function initMenu() {
+        const fContainer = document.getElementById('floor-container');
+        const fullNotice = document.getElementById('full-complete-notice');
+        if (!fContainer) return;
+        fContainer.innerHTML = '';
+        
+        // Data List Panel sesuai Instruksi Terbaru
+        const panelData = {
+            1: [
+                'Panel Incoming LV', 'Panel Cafe graha 2', 'Panel Control AC / Ruang teknisi', 
+                'Panel Graha 2 Lantai 1', 'Panel Graha 1 Lantai 1', 'Panel Hydrant ( 1 )', 
+                'Panel Hydrant ( SDB-0D)', 'Panel Hydrant ( SDB-Pump)', 'Panel Hydrant ( Jockey-Pump )', 
+                'Panel Hydrant ( Diesel Engine )', 'Panel Hydrant ( PDAM / Tandon )', 
+                'Panel Bateray', 'Panel genset / AMV'
+            ],
+            2: [
+                'Panel Graha 1 Lantai 2', 'Panel Stop kontak Graha 1 Lantai 2', 
+                'Panel Graha 2 Lantai 2 ( indoor VRV , stopkontak, lighting)'
+            ],
+            3: [
+                'Panel graha 1 Lantai 3', 'Panel FCU Graha 1 Lantai 3', 
+                'Panel stopkontak graha 1 Lantai 3 ( R.server)', 'Panel graha 2 Lantai 3', 
+                'Panel FCU Graha 2 Lantai 3'
+            ],
+            4: [
+                'Panel Graha 1 Lantai 4', 'Panel FCU graha 1 Lantai 4', 
+                'Panel stopkontak Graha 1 Lantai 4 ( R.server)', 'Panel Graha 2 Lantai 4 (1)', 
+                'Panel Graha 2 Lantai 4 (2)', 'Panel Graha 2 Lantai 4 (3)'
+            ],
+            5: [
+                'Panel Lift Lantai 4 ( R. Radio)', 'Panel pengisian air chiller', 
+                'Panel kontrol heater chiller', 'Panel incoming Chiller 1', 
+                'Panel incoming Chiller 2', 'Panel incoming Chiller 3', 
+                'Panel Chiller 1', 'Panel Chiller 2', 'Panel Chiller 3', 
+                'Panel VRV', 'Panel Lift ( SDB-Lift)', 'Panel Lighting Graha 1 Lantai 5', 
+                'Panel FCU Graha 1 Lantai 5', 'Panel stopkontak Graha 1 Lantai 5 ( R.server)', 
+                'Panel Graha 2 Lantai 5'
+            ],
+            6: [
+                'Panel Graha 2 Lantai 6 (1)', 'Panel Graha 2 Lantai 6 (2)', 'Panel Graha 2 Lantai 6 (3)'
+            ],
+            7: [
+                'Panel IT', 'Panel Graha 2 Lantai 7', 'Panel Lift Lantai 7 .'
+            ]
+        };
+
+        let globalCleanedCount = 0;
+        let globalTotalPanels = 0;
+
+        for (let i = 1; i <= 7; i++) {
+            const sched = getSchedule(i);
+            const panels = panelData[i] || [];
+            
+            globalTotalPanels += panels.length;
+            let floorDoneCount = 0;
+            let panelHtml = '';
+
+            panels.forEach(p => {
+                const cleaned = isAlreadyCleaned(`Lantai ${i}`, p);
+                if (cleaned) {
+                    floorDoneCount++;
+                    globalCleanedCount++;
+                }
+                panelHtml += `
+                    <div class="panel-item" onclick="${cleaned ? "alert('Sudah selesai!')" : `start('Lantai ${i}', '${p}')`}">
+                        <span>${cleaned ? '✅' : '⚡'} ${p}</span>
+                        ${cleaned ? '<span class="done-mark">DONE</span>' : ''}
+                    </div>`;
+            });
+
+            let reminderTxt = '';
+            if (floorDoneCount === panels.length && panels.length > 0) {
+                reminderTxt = `<span class="next-cleaning-tag">Next: ${sched.nextMonth} Minggu ke-${sched.week}</span>`;
+            }
+
+            fContainer.innerHTML += `
+                <button class="floor-btn" onclick="toggleF('l${i}')">
+                    <div>
+                        <div class="floor-header-content">
+                            <span>🏢 Lantai ${i}</span> 
+                            ${reminderTxt}
+                        </div>
+                        <span class="week-info">${sched.month} - W${sched.week}</span>
+                    </div>
+                    <span>${floorDoneCount === panels.length ? '✅' : '▾'}</span>
+                </button>
+                <div id="l${i}" class="panel-list">${panelHtml}</div>
+            `;
+        }
+
+        if(fullNotice) fullNotice.style.display = (globalCleanedCount === globalTotalPanels && globalTotalPanels > 0) ? 'block' : 'none';
+    }
+
+    function toggleF(id) {
+        const target = document.getElementById(id);
+        const isOpen = target.style.display === 'block';
+        
+        const isDashboard = id.startsWith('rep-');
+        const groupClass = isDashboard ? '.report-panel-container' : '.panel-list';
+        
+        document.querySelectorAll(groupClass).forEach(p => p.style.display = 'none');
+        target.style.display = isOpen ? 'none' : 'block';
+    }
+
+    function switchTab(pageId, el) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        el.classList.add('active');
+    }
+
+    function resetCam() {
+        document.getElementById('file-before').value = "";
+        document.getElementById('file-after').value = "";
+        document.getElementById('p-before').src = "";
+        document.getElementById('p-before').style.display = "none";
+        document.getElementById('p-after').src = "";
+        document.getElementById('p-after').style.display = "none";
+        document.getElementById('input-finding').value = "";
+    }
+
+    function start(f, p) { 
+        resetCam(); 
+        activeF = f; 
+        activeP = p; 
+        document.getElementById('cam-screen').style.display = 'block'; 
+        document.getElementById('c-panel').innerText = f + " - " + p; 
+    }
+
+    function closeCam() { document.getElementById('cam-screen').style.display = 'none'; }
+    
+    function handleImg(input, targetId) {
+        if (!input.files[0]) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        const out = document.getElementById(targetId);
+        out.style.display = 'block';
+        out.style.opacity = "0.3"; 
+
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const cvs = document.createElement('canvas');
+                const ctx = cvs.getContext('2d');
+                const maxWidth = 800;
+                const scale = maxWidth / img.width;
+                cvs.width = maxWidth;
+                cvs.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
+
+                let quality = 0.8; 
+                let dataUrl = cvs.toDataURL('image/jpeg', quality);
+                while ((dataUrl.length * 0.75) > 250000 && quality > 0.1) {
+                    quality -= 0.1;
+                    dataUrl = cvs.toDataURL('image/jpeg', quality);
+                }
+                out.src = dataUrl;
+                out.style.opacity = "1";
+            }
+        }
+    }
+
+    function doSave() {
+        const b = document.getElementById('p-before').src;
+        const a = document.getElementById('p-after').src;
+        const fnd = document.getElementById('input-finding').value;
+        
+        if(!b.startsWith('data') || !a.startsWith('data')) return alert("Lengkapi Foto Before & After!");
+        
+        const now = new Date();
+        const data = { 
+            id: Date.now(), f: activeF, p: activeP, 
+            d: now.toLocaleString(), rawDate: now.toISOString(), 
+            b, a, 
+            finding: fnd || "-" 
+        };
+        
+        let reports = JSON.parse(localStorage.getItem('logs') || '[]');
+        reports.unshift(data);
+        localStorage.setItem('logs', JSON.stringify(reports));
+        alert("Simpan Berhasil!"); closeCam(); initMenu();
+    }
+
+    function loadData() {
+        const list = document.getElementById('report-list');
+        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+        
+        if(logs.length === 0) { 
+            list.innerHTML = "<p style='text-align:center; color:#999; margin-top:30px;'>Kosong</p>"; 
+            return; 
+        }
+
+        const grouped = logs.reduce((acc, log) => {
+            if (!acc[log.f]) acc[log.f] = [];
+            acc[log.f].push(log);
+            return acc;
+        }, {});
+
+        let html = '';
+        for (const lantai in grouped) {
+            const floorId = "rep-" + lantai.replace(/\s+/g, '');
+            const count = grouped[lantai].length;
+
+            html += `
+                <div style="margin-bottom:10px;">
+                    <button class="floor-btn" onclick="toggleF('${floorId}')">
+                        <span>🏢 ${lantai}</span>
+                        <span style="font-size: 11px; background: var(--info); color:white; padding: 2px 8px; border-radius: 10px;">
+                            ${count} Laporan ▾
+                        </span>
+                    </button>
+                    <div id="${floorId}" class="report-panel-container">
+                        ${grouped[lantai].map(l => `
+                            <div class="report-item">
+                                <div class="report-header">
+                                    <div class="report-info">
+                                        <b>${l.p}</b>
+                                        <span>🕒 ${l.d}</span>
+                                    </div>
+                                    <div class="report-actions">
+                                        <button class="icon-btn" onclick="viewPhoto(${l.id})">👁️</button>
+                                        <button class="btn-del-small" onclick="del(${l.id})">🗑️</button>
+                                    </div>
+                                </div>
+                                ${l.finding && l.finding !== "-" ? `<div class="report-finding">📍 Temuan: ${l.finding}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        list.innerHTML = html;
+    }
+
+    function viewPhoto(id) {
+        const logs = JSON.parse(localStorage.getItem('logs'));
+        const item = logs.find(x => x.id === id);
+        document.getElementById('m-title').innerText = item.p;
+        document.getElementById('m-date').innerText = item.f + " | " + item.d;
+        document.getElementById('m-finding').innerText = item.finding !== "-" ? "Temuan: " + item.finding : "";
+        document.getElementById('m-before').src = item.b; 
+        document.getElementById('m-after').src = item.a;
+        document.getElementById('photo-modal').style.display = 'flex';
+    }
+    
+    function closePhoto() { document.getElementById('photo-modal').style.display = 'none'; }
+    function del(id) { if(confirm('Hapus?')) { let logs = JSON.parse(localStorage.getItem('logs')).filter(x => x.id !== id); localStorage.setItem('logs', JSON.stringify(logs)); loadData(); initMenu(); } }
+    function clearAll() { if(confirm('Hapus semua?')) { localStorage.clear(); loadData(); initMenu(); } }
+    
+    function exportExcel() {
+        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+        const data = logs.map(l => ({ "Tanggal": l.d, "Lantai": l.f, "Panel": l.p, "Temuan": l.finding }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Reports");
+        XLSX.writeFile(wb, "Laporan_Maintenance.xlsx");
+    }
+    
+    function exportPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+        doc.text("LAPORAN MAINTENANCE", 14, 15);
+        doc.autoTable({ 
+            startY: 25, 
+            head: [['No', 'Tanggal', 'Lantai', 'Panel', 'Temuan']], 
+            body: logs.map((l, i) => [i+1, l.d, l.f, l.p, l.finding]) 
+        });
+        doc.save("Laporan_Maintenance.pdf");
+    }
+
+    setInterval(() => { 
+        const el = document.getElementById('clock');
+        if(el) el.innerText = new Date().toLocaleString(); 
+    }, 1000);
+    initMenu();
+// Tambahkan ini agar klik di area hitam (overlay) bisa menutup modal
+document.getElementById('photo-modal').addEventListener('click', function(e) {
+    if (e.target === this) closePhoto();
+});
+</script>
+</body>
+</html>
