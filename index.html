@@ -104,8 +104,8 @@
 <div id="page-report" class="page">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h4 style="margin:0">Riwayat Laporan</h4>
-        <button onclick="clearAllData()" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e74c3c; background: #fff5f5; color: #e74c3c; font-weight: bold; font-size: 11px; cursor: pointer; transition: 0.2s;">
-            🗑️ Hapus Data Tahunan
+        <button onclick="hapusDataSupabase()" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e74c3c; background: #fff5f5; color: #e74c3c; font-weight: bold; font-size: 11px; cursor: pointer;">
+            🗑️ Kosongkan Database Supabase
         </button>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
@@ -431,26 +431,32 @@
     // Jalankan pertama kali
     initMenu();
 
-    function clearAllData() {
-    // Mengambil data logs dari storage
-    const currentLogs = JSON.parse(localStorage.getItem('logs') || '[]');
-    const total = currentLogs.length;
+    async function hapusDataSupabase() {
+    // 1. Konfirmasi Keamanan
+    const yakin = confirm("PERHATIAN: Bapak akan menghapus SELURUH data dari database Supabase.\n\nData yang dihapus tidak bisa dikembalikan. Pastikan sudah EXPORT ke Excel.\n\nLanjutkan hapus semua?");
     
-    if (total === 0) {
-        alert("Tidak ada data yang bisa dihapus.");
-        return;
-    }
+    if (!yakin) return;
 
-    // Konfirmasi dua kali agar tidak tidak sengaja terhapus
-    const konfirmasi1 = confirm(`Bapak akan menghapus TOTAL ${total} data laporan.`);
-    if (konfirmasi1) {
-        const konfirmasi2 = confirm("PENTING: Pastikan Bapak sudah EXPORT ke Excel/PDF.\n\nHapus semua data sekarang?");
-        if (konfirmasi2) {
-            localStorage.removeItem('logs'); // Menghapus data spesifik maintenance
-            loadData(); // Refresh tampilan dashboard
-            initMenu(); // Refresh status centang di menu utama
-            alert("Data berhasil dikosongkan.");
+    try {
+        // 2. Perintah Hapus ke Supabase (Menghapus semua data di tabel maintenance_logs)
+        // Kita menggunakan filter .neq('id', 0) untuk memastikan semua id terhapus
+        const { error } = await supabase
+            .from('maintenance_logs')
+            .delete()
+            .neq('id', 0); 
+
+        if (error) {
+            console.error('Error Supabase:', error);
+            alert("Gagal menghapus data: " + error.message);
+        } else {
+            alert("Berhasil! Seluruh data di Supabase telah dibersihkan.");
+            
+            // 3. Refresh tampilan aplikasi
+            if (typeof loadData === "function") loadData();
+            if (typeof initMenu === "function") initMenu();
         }
+    } catch (err) {
+        alert("Terjadi kesalahan koneksi ke Supabase.");
     }
 }
 </script>
