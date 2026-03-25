@@ -69,7 +69,7 @@
         .btn-pdf { background: #b03535; }
         
         .icon-btn { background: #f0f3f5; border: none; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 18px; color: var(--primary); transition: 0.2s; }
-        .btn-del-small { color: #e74c3c; font-size: 14px; background: none; border: none; cursor: pointer; }
+        .btn-del-small { color: #e74c3c; font-size: 16px; background: none; border: none; cursor: pointer; padding: 5px; }
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; padding: 20px; box-sizing: border-box; justify-content: center; align-items: center; flex-direction: column; }
         .modal-content { background: white; width: 100%; max-width: 400px; border-radius: 15px; padding: 15px; position: relative; overflow-y: auto; max-height: 90vh; }
@@ -102,10 +102,10 @@
 </div>
 
 <div id="page-report" class="page">
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h4 style="margin:0">Riwayat Laporan</h4>
         <button onclick="hapusDataSupabase()" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e74c3c; background: #fff5f5; color: #e74c3c; font-weight: bold; font-size: 11px; cursor: pointer;">
-            🗑️ Kosongkan Database Supabase
+            🗑️ Kosongkan Database
         </button>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
@@ -167,7 +167,7 @@
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
     let activeP = ""; let activeF = "";
-    let globalLogs = []; // Cache untuk data dari Supabase
+    let globalLogs = []; 
     const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
     function getSchedule(floorIndex) {
@@ -183,14 +183,13 @@
         };
     }
 
-    // Fungsi cek status DONE berdasarkan data dari Supabase
     function isAlreadyCleaned(floor, panel) {
         const now = new Date();
         const currentCycleMonth = Math.floor(now.getMonth() / 3) * 3;
         const currentYear = now.getFullYear();
         
         return globalLogs.some(l => {
-            const logDate = new Date(l.raw_date);
+            const logDate = new Date(l.created_at);
             const logCycleMonth = Math.floor(logDate.getMonth() / 3) * 3;
             return l.lantai === floor && 
                    l.nama_panel === panel && 
@@ -200,9 +199,10 @@
     }
 
     async function initMenu() {
-        // Ambil data terbaru dari Supabase dulu
-        const { data, error } = await _supabase.from('pm_panel_logs').select('*');
-        if (!error) globalLogs = data;
+        try {
+            const { data, error } = await _supabase.from('pm_panel_logs').select('*');
+            if (!error) globalLogs = data;
+        } catch(e) {}
 
         const fContainer = document.getElementById('floor-container');
         const fullNotice = document.getElementById('full-complete-notice');
@@ -258,7 +258,6 @@
         if(fullNotice) fullNotice.style.display = (globalCleanedCount === globalTotalPanels && globalTotalPanels > 0) ? 'block' : 'none';
     }
 
-    // --- FUNGSI SAVE KE SUPABASE ---
     async function doSave() {
         const b = document.getElementById('p-before').src;
         const a = document.getElementById('p-after').src;
@@ -344,7 +343,29 @@
         if(confirm('Hapus laporan ini dari database?')) {
             const { error } = await _supabase.from('pm_panel_logs').delete().eq('id', id);
             if(error) alert("Gagal hapus: " + error.message);
-            else loadData();
+            else {
+                alert("Data dihapus.");
+                loadData();
+            }
+        }
+    }
+
+    async function hapusDataSupabase() {
+        if (!confirm("Bapak akan menghapus SELURUH data di Supabase.\nPastikan sudah EXPORT EXCEL.\n\nLanjutkan?")) return;
+
+        try {
+            // Filter .neq('id', 0) digunakan agar Supabase mengizinkan penghapusan masal
+            const { error } = await _supabase.from('pm_panel_logs').delete().neq('id', 0);
+
+            if (error) {
+                alert("Gagal: " + error.message);
+            } else {
+                alert("Database Berhasil Dikosongkan!");
+                loadData();
+                initMenu();
+            }
+        } catch (err) {
+            alert("Kesalahan Koneksi.");
         }
     }
 
@@ -358,7 +379,6 @@
         document.getElementById('photo-modal').style.display = 'flex';
     }
 
-    // --- FUNGSI HELPER LAINNYA ---
     function toggleF(id) {
         const target = document.getElementById(id);
         const isOpen = target.style.display === 'block';
@@ -398,8 +418,7 @@
                 const scale = maxWidth / img.width;
                 cvs.width = maxWidth; cvs.height = img.height * scale;
                 ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
-                let quality = 0.7;
-                out.src = cvs.toDataURL('image/jpeg', quality);
+                out.src = cvs.toDataURL('image/jpeg', 0.7);
                 out.style.opacity = "1";
             }
         }
@@ -428,37 +447,7 @@
     setInterval(() => { const el = document.getElementById('clock'); if(el) el.innerText = new Date().toLocaleString(); }, 1000);
     document.getElementById('photo-modal').addEventListener('click', function(e) { if (e.target === this) closePhoto(); });
     
-    // Jalankan pertama kali
     initMenu();
-
-    async function hapusDataSupabase() {
-    // 1. Konfirmasi Keamanan
-    const yakin = confirm("PERHATIAN: Bapak akan menghapus SELURUH data dari database Supabase.\n\nData yang dihapus tidak bisa dikembalikan. Pastikan sudah EXPORT ke Excel.\n\nLanjutkan hapus semua?");
-    
-    if (!yakin) return;
-
-    try {
-        // 2. Perintah Hapus ke Supabase (Menghapus semua data di tabel maintenance_logs)
-        // Kita menggunakan filter .neq('id', 0) untuk memastikan semua id terhapus
-        const { error } = await supabase
-            .from('maintenance_logs')
-            .delete()
-            .neq('id', 0); 
-
-        if (error) {
-            console.error('Error Supabase:', error);
-            alert("Gagal menghapus data: " + error.message);
-        } else {
-            alert("Berhasil! Seluruh data di Supabase telah dibersihkan.");
-            
-            // 3. Refresh tampilan aplikasi
-            if (typeof loadData === "function") loadData();
-            if (typeof initMenu === "function") initMenu();
-        }
-    } catch (err) {
-        alert("Terjadi kesalahan koneksi ke Supabase.");
-    }
-}
 </script>
 </body>
 </html>
